@@ -159,6 +159,55 @@ static int compare_index_entries(const void *a, const void *b) {
     return strcmp(ea->path, eb->path);
 }
 
+int index_save(const Index *index) {
+    if (!index) return -1;
+    if (index->count < 0 || index->count > MAX_INDEX_ENTRIES) return -1;
 
+    // Ensure .pes exists
+    if (access(PES_DIR, F_OK) != 0) {
+        if (mkdir(PES_DIR, 0755) != 0 && errno != EEXIST) return -1;
+    }
+
+    // IMPORTANT: avoid "Index tmp = *index;" (stack overflow risk)
+    // Sort in-place. Callers pass mutable Index anyway.
+    Index *mutable_index = (Index *)index;
+    qsort(mutable_index->entries, (size_t)mutable_index->count,
+          sizeof(IndexEntry), compare_index_entries);
+
+    char tmp_path[512];
+    if (snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", INDEX_FILE) >= (int)sizeof(tmp_path)) {
+        return -1;
+    }
+
+    FILE *f = fopen(tmp_path, "w");
+    if (!f) return -1;
+
+    for (int i = 0; i < mutable_index->count; i++) {
+        char hex[HASH_HEX_SIZE + 1];
+        hash_to_hex(&mutable_index->entries[i].hash, hex);
+
+        if (fprintf(f, "%o %s %llu %u %s\n",
+                    mutable_index->entries[i].mode,
+                    hex,
+                    (unsigned long long)mutable_index->entries[i].mtime_sec,
+                    mutable_index->entries[i].size,
+                    mutable_index->entries[i].path) < 0) {
+            fclose(f);
+            unlink(tmp_path);
+            return -1;
+        }
+    }
+
+    if (fflush(f) != 0) { fclose(f); unlink(tmp_path); return -1; }
+
+    int fd = fileno(f);
+    if (fd < 0 || fsync(fd) != 0) { fclose(f); unlink(tmp_path); return -1; }
+
+    if (fclose(f) != 0) { unlink(tmp_path); return -1; }
+
+    if (rename(tmp_path, INDEX_FILE) != 0) { unlink(tmp_path); return -1; }
+
+    return 0;
+}
 
 
