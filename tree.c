@@ -155,6 +155,20 @@ static int write_tree_recursive(IndexEntry *entries, int count, int depth, Objec
                 j++;
             }
 
+            ObjectID subtree_id;
+            if (write_tree_recursive(entries + i, j - i, depth + 1, &subtree_id) != 0)
+                return -1;
+
+            TreeEntry *te = &tree.entries[tree.count++];
+            strncpy(te->name, dir_name, sizeof(te->name) - 1);
+            te->name[sizeof(te->name) - 1] = '\0';
+            te->mode = MODE_DIR;
+            te->hash = subtree_id;
+
+            i = j;
+        }
+    }
+
 
 
 // Build a tree hierarchy from the current index and write all tree objects.
