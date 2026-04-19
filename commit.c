@@ -180,4 +180,14 @@ int commit_create(const char *message, ObjectID *commit_id_out) {
         return -1;
     }
 
+    // Step 2: Fill in the Commit struct
+    Commit commit;
+    memset(&commit, 0, sizeof(commit));
+
+    commit.tree = tree_id;
+    commit.timestamp = (uint64_t)time(NULL);
+    snprintf(commit.author, sizeof(commit.author), "%s", pes_author());
+    snprintf(commit.message, sizeof(commit.message), "%s", message);
+
+
 }
