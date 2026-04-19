@@ -124,6 +124,37 @@ static int write_tree_recursive(IndexEntry *entries, int count, int depth, Objec
             p++;
         }
 
+        const char *slash = strchr(p, '/');
+
+        if (slash == NULL) {
+            // Plain file at this level
+            TreeEntry *te = &tree.entries[tree.count++];
+            strncpy(te->name, p, sizeof(te->name) - 1);
+            te->name[sizeof(te->name) - 1] = '\0';
+            te->mode = entries[i].mode;
+            te->hash = entries[i].hash;
+            i++;
+        } else {
+            // Subdirectory — collect all entries sharing this prefix
+            size_t dir_len = (size_t)(slash - p);
+            char dir_name[256];
+            if (dir_len >= sizeof(dir_name)) return -1;
+            memcpy(dir_name, p, dir_len);
+            dir_name[dir_len] = '\0';
+
+            int j = i;
+            while (j < count) {
+                const char *pp = entries[j].path;
+                for (int d = 0; d < depth; d++) {
+                    pp = strchr(pp, '/');
+                    if (!pp) break;
+                    pp++;
+                }
+                if (!pp) break;
+                if (strncmp(pp, dir_name, dir_len) != 0 || pp[dir_len] != '/') break;
+                j++;
+            }
+
 
 
 // Build a tree hierarchy from the current index and write all tree objects.
