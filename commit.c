@@ -206,4 +206,13 @@ int commit_create(const char *message, ObjectID *commit_id_out) {
         return -1;
     }
 
+    // Step 5: Write the commit object to the object store
+    if (object_write(OBJ_COMMIT, commit_data, commit_len, commit_id_out) != 0) {
+        free(commit_data);
+        fprintf(stderr, "error: failed to write commit object\n");
+        return -1;
+    }
+    free(commit_data);
+
+
 }
