@@ -169,7 +169,14 @@ static int write_tree_recursive(IndexEntry *entries, int count, int depth, Objec
         }
     }
 
+    void *tree_data;
+    size_t tree_len;
+    if (tree_serialize(&tree, &tree_data, &tree_len) != 0) return -1;
 
+    int rc = object_write(OBJ_TREE, tree_data, tree_len, id_out);
+    free(tree_data);
+    return rc;
+}
 
 // Build a tree hierarchy from the current index and write all tree objects.
 int tree_from_index(ObjectID *id_out) {
