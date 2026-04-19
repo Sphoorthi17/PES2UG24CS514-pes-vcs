@@ -210,4 +210,50 @@ int index_save(const Index *index) {
     return 0;
 }
 
+// Stage a file for the next commit.
+int index_add(Index *index, const char *path) {
+    if (!index || !path) return -1;
+    if (index->count < 0 || index->count > MAX_INDEX_ENTRIES) return -1;
 
+    struct stat st;
+    if (stat(path, &st) != 0) return -1;
+    if (!S_ISREG(st.st_mode)) return -1;
+
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+
+    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return -1; }
+    long end = ftell(f);
+    if (end < 0) { fclose(f); return -1; }
+    size_t size = (size_t)end;
+    if (fseek(f, 0, SEEK_SET) != 0) { fclose(f); return -1; }
+
+    void *buf = malloc(size ? size : 1);
+    if (!buf) { fclose(f); return -1; }
+
+    size_t n = fread(buf, 1, size, f);
+    fclose(f);
+    if (n != size) { free(buf); return -1; }
+
+    ObjectID blob_id;
+    if (object_write(OBJ_BLOB, buf, size, &blob_id) != 0) {
+        free(buf);
+        return -1;
+    }
+    free(buf);
+
+    IndexEntry *e = index_find(index, path);
+    if (!e) {
+        if (index->count >= MAX_INDEX_ENTRIES) return -1;
+        e = &index->entries[index->count++];
+        memset(e, 0, sizeof(*e));
+        snprintf(e->path, sizeof(e->path), "%s", path);
+    }
+
+    e->mode = (st.st_mode & S_IXUSR) ? 0100755 : 0100644;
+    e->hash = blob_id;
+    e->mtime_sec = (uint64_t)st.st_mtime;
+    e->size = (uint32_t)st.st_size;
+
+    return index_save(index);
+}
