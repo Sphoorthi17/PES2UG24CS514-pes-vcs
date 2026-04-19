@@ -153,4 +153,12 @@ int index_load(Index *index) {
     return 0;
 }
 
+static int compare_index_entries(const void *a, const void *b) {
+    const IndexEntry *ea = (const IndexEntry *)a;
+    const IndexEntry *eb = (const IndexEntry *)b;
+    return strcmp(ea->path, eb->path);
+}
+
+
+
 
